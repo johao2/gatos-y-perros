@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificador de Gatos y Perros</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: url('https://img.freepik.com/vector-gratis/vector-lindo-marco-frontera-perro-fondo-beige_53876-111781.jpg') 
+            no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        video {
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            height: auto;
+        }
+        #status {
+            font-size: 1.4rem;
+            color: #444;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        #start-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        #start-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1 id="status">Cargando modelo...</h1>
+        <select id="camera-select" style="margin-bottom: 10px;">
+            <option value="user">Cámara Frontal</option>
+            <option value="environment">Cámara Trasera</option>
+        </select>
+        <video id="video" width="300" height="300" autoplay style="display:none;"></video>
+        <button id="start-btn" onclick="startCamera()">Iniciar Clasificación</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    
+    <script>
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('start-btn');
+        const cameraSelect = document.getElementById('camera-select');
+        let net;
+
+        // Inicializar la cámara del dispositivo
+        async function startCamera() {
+            startBtn.style.display = 'none';  // Ocultar el botón de inicio
+            video.style.display = 'block';    // Mostrar el video de la cámara
+            document.getElementById('status').innerText = "Activando cámara...";
+            const selectedCamera = cameraSelect.value; // Obtener la cámara seleccionada (frontal o trasera)
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: selectedCamera, // Configurar la cámara frontal o trasera
+                    width: 300, 
+                    height: 300 
+                },
+                audio: false
+            });
+            video.srcObject = stream;
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    resolve(video);
+                    document.getElementById('status').innerText = "Cámara activada. Enfoca un perro o un gato.";
+                    loadModelAndClassifyFromCamera();
+                };
+            });
+        }
+
+        // Cargar el modelo MobileNet y clasificar en tiempo real desde la cámara
+        async function loadModelAndClassifyFromCamera() {
+            while (true) {
+                const result = await net.classify(video);
+                console.log(result);  // Mostrar todas las clasificaciones
+
+                if (result.length > 0) {  // Verificar si el resultado no está vacío
+                    if (result[0].className.includes("cat")) {
+                        document.getElementById('status').innerText = "Gato detectado";
+                    } else if (result[0].className.includes("dog")) {
+                        document.getElementById('status').innerText = "Perro detectado";
+                    } else {
+                        document.getElementById('status').innerText = "Enfoca un perro o un gato";
+                    }
+                } else {
+                    document.getElementById('status').innerText = "Sin detección. Enfoca un perro o un gato.";
+                }
+
+                await tf.nextFrame();
+            }
+        }
+
+        // Cargar el modelo MobileNet al iniciar la página
+        async function init() {
+            net = await mobilenet.load();
+            document.getElementById('status').innerText = "Modelo cargado. Presiona 'Iniciar Clasificación'.";
+        }
+
+        init();
+    </script>
+</body>
+</html>
